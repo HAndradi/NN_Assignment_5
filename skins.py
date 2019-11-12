@@ -1,8 +1,11 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+
 from sklearn import svm
 from sklearn.metrics import confusion_matrix, precision_score, recall_score
+from sklearn.utils.class_weight import compute_class_weight
+
 from keras.layers import Input, Dense
 from keras.models import Model
 from keras.optimizers import SGD, Adagrad, RMSprop, Adam
@@ -56,24 +59,25 @@ print (precision_score(test_labels, svm_rbf.predict(test_data), [1,0]))
 print ("recall:")
 print (recall_score(test_labels, svm_rbf.predict(test_data), [1,0]), end="\n\n")
 
+
+# Arquitecture
 input_data = Input(shape=(1021,))
-hidden_layers = Dense(2000, activation='relu')(input_data)
-hidden_layers = Dense(1000, activation='relu')(hidden_layers)
-hidden_layers = Dense(500, activation='relu')(hidden_layers)
-output_data = Dense(2, activation='linear')(hidden_layers)
-nn = Model(input_data, output_data)
-#sgd = SGD(lr=0.01, clipvalue=0.5)
-sgd = Adam(lr=0.1, clipvalue=5)
-nn.compile(optimizer=sgd, loss='mse')
-adjusted_train_labels = np.array([[1,0] if label==1 else [0,1] for label in train_labels])
-nn.fit(train_data, adjusted_train_labels, epochs=1000, batch_size=100, shuffle=True)
-#nn.fit(train_data, adjusted_train_labels, epochs=100, batch_size=100, shuffle=True, verbose=0)
-predicted_labels = nn.predict(test_data)
-adjusted_predicted_labels = np.array([1 if label[0]>label[1] else 0 for label in predicted_labels])
+x = Dense(1021, activation='relu')(input_data)
+output_data = Dense(1, activation='sigmoid')(x)
+# Define model
+model = Model(input_data, output_data)
+# Compile model
+adam = Adam(lr=0.000001)
+model.compile(loss='binary_crossentropy', optimizer=adam, metrics=['accuracy'])
+# Evaluate model
+weights = compute_class_weight('balanced',np.array([0,1]),train_labels)
+model.fit(train_data, train_labels, batch_size=5, epochs=20, class_weight={0:weights[0],1:weights[1]}, verbose=1)
+predicted_labels = model.predict(test_data)
+predicted_labels = np.array([i > 0.5 for i in predicted_labels])
 print ("NN PERFORMANCE")
 print ("confusion matrix:")
-print (confusion_matrix(test_labels, adjusted_predicted_labels, [1,0]))
+print (confusion_matrix(test_labels, predicted_labels, [1,0]))
 print ("precision:")
-print (precision_score(test_labels, adjusted_predicted_labels, [1,0]))
+print (precision_score(test_labels, predicted_labels, [1,0]))
 print ("recall:")
-print (recall_score(test_labels, adjusted_predicted_labels, [1,0]), end="\n\n")
+print (recall_score(test_labels, predicted_labels, [1,0]), end="\n\n")
